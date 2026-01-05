@@ -1,0 +1,35 @@
+# Development files
+.github/
+.eslintrc.json
+.prettierrc.json
+.editorconfig
+.gitignore
+
+# Test files
+index.test.mjs
+test/
+tests/
+*.test.js
+*.test.mjs
+*.spec.js
+*.spec.mjs
+
+# Documentation (keep README.md, license, but ignore others)
+CONTRIBUTING.md
+SECURITY.md
+CHANGELOG.md
+examples/
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# CI/CD
+.github/
+
+# Misc
+.DS_Store
+Thumbs.db

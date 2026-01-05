@@ -13,7 +13,7 @@ npm install payway
 
 ## Requirements
 
-- Node.js >= 16.0.0
+- Node.js >= 18.0.0 (LTS)
 
 ## Get Started
 
@@ -262,17 +262,15 @@ None. This version maintains full backward compatibility with v0.2.0.
 
 #### New Features
 
-- **Enhanced TypeScript Definitions**: 
+- **Enhanced TypeScript Definitions**:
   - Enums for `TransactionStatus` and `PaymentOption`
   - Detailed request parameter interfaces (`CreateTransactionParams`, `CheckTransactionParams`, `TransactionListParams`)
   - Enhanced response interfaces with additional fields
   - Full type safety with no `any` types in public APIs
-  
 - **Improved Error Handling**:
   - `PayWayError` now includes `errorCode` and `details` properties
   - Better error messages with API error codes
   - Parameter validation with descriptive error messages
-  
 - **Code Quality**:
   - Added Prettier configuration for consistent formatting
   - Enhanced ESLint rules
@@ -284,24 +282,26 @@ None. This version maintains full backward compatibility with v0.2.0.
 **No code changes required!** The API remains backward compatible. However, you can now take advantage of:
 
 1. **Enhanced TypeScript Types:**
+
    ```typescript
-   import { 
-     PayWayClient, 
-     TransactionStatus, 
+   import {
+     PayWayClient,
+     TransactionStatus,
      PaymentOption,
-     CreateTransactionParams 
+     CreateTransactionParams,
    } from "payway";
-   
+
    // Use enums for better type safety
    const params: CreateTransactionParams = {
      tran_id: "order-123",
      payment_option: PaymentOption.ABAPAY_DEEPLINK,
      amount: 100,
-     currency: "USD"
+     currency: "USD",
    };
    ```
 
 2. **Better Error Handling:**
+
    ```typescript
    try {
      await client.create_transaction({ ... });

@@ -1,32 +1,46 @@
 {
   "name": "payway",
-  "description": "An unofficial client for ABA PayWay",
-  "version": "0.3.0",
+  "version": "0.4.0",
+  "description": "An unofficial Node.js client for ABA PayWay payment gateway with full TypeScript support",
   "main": "index.js",
   "types": "index.d.ts",
-  "repository": "seanghay/payway-js",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "ava"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seanghay/payway-js.git"
+  },
   "keywords": [
     "abapay",
     "payway",
     "ababank",
-    "abapayway"
+    "abapayway",
+    "payment",
+    "gateway",
+    "cambodia",
+    "typescript",
+    "payment-processing"
   ],
   "author": {
-    "email": "seanghay.dev@gmail.com",
     "name": "Seanghay Yath",
+    "email": "seanghay.dev@gmail.com",
     "url": "https://github.com/seanghay"
   },
   "license": "MIT",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
-  "scripts": {
-    "test": "ava"
+  "homepage": "https://github.com/seanghay/payway-js#readme",
+  "bugs": {
+    "url": "https://github.com/seanghay/payway-js/issues"
   },
-  "files": [
-    "index.js",
-    "index.d.ts"
-  ],
   "dependencies": {
     "axios": "^1.7.7",
     "date-fns": "^3.6.0",
