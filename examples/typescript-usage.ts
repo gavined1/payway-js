@@ -3,6 +3,11 @@
  *
  * This example demonstrates TypeScript usage with payway-js,
  * including enums, interfaces, and type safety.
+ *
+ * Note: After installing via npm, use:
+ *   import { ... } from "payway";
+ *
+ * For local development, we use a relative import:
  */
 
 import {
@@ -13,7 +18,7 @@ import {
   CheckTransactionResponse,
   PayWayError,
   PayWayRequestError,
-} from "payway";
+} from "../index";
 
 // Initialize the client
 const client = new PayWayClient(
