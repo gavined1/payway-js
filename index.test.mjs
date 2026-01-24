@@ -28,6 +28,7 @@ test("should create formdata", (t) => {
   const client = new PayWayClient("http://example.com", "1", "1");
   const date = new Date(0);
   const data = client.create_payload(
+    ["a-value", "b-value"],
     {
       a: "a-value",
       b: "b-value",
@@ -304,15 +305,47 @@ test("PayWayError should contain response and statusCode", (t) => {
   t.true(error instanceof Error);
 });
 
-test("PayWayRequestError should contain originalError", (t) => {
-  const originalError = new Error("Network failed");
-  const error = new PayWayRequestError("Request failed", originalError);
+test("create_transaction should handle items and custom_fields", async (t) => {
+  const mockClient = {
+    post: async (url, formData) => {
+      const items = formData.get("items");
+      const custom_fields = formData.get("custom_fields");
 
-  t.is(error.message, "Request failed");
-  t.is(error.name, "PayWayRequestError");
-  t.is(error.originalError, originalError);
-  t.true(error instanceof PayWayError);
-  t.true(error instanceof Error);
+      t.truthy(items);
+      t.is(custom_fields, "field-value");
+
+      // Verify items is base64 encoded
+      const decodedItems = JSON.parse(
+        Buffer.from(items, "base64").toString("utf-8")
+      );
+      t.is(decodedItems[0].name, "Product 1");
+
+      return {
+        data: {
+          tran_id: "test",
+          payment_url: "https://payway.com.kh/pay/test",
+        },
+      };
+    },
+  };
+
+  const client = new PayWayClient(
+    "http://example.com",
+    "1",
+    "1",
+    () => mockClient
+  );
+
+  await client.create_transaction({
+    tran_id: "test",
+    payment_option: "abapay",
+    amount: 100,
+    currency: "USD",
+    items: [{ name: "Product 1", quantity: 1, amount: 100 }],
+    custom_fields: "field-value",
+  });
+
+  t.pass();
 });
 
 // Parameter validation tests

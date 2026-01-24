@@ -45,6 +45,11 @@ try {
     lastname: "Doe",
     email: "john.doe@example.com",
     phone: "+855123456789",
+    items: [
+      { name: "Product A", quantity: 1, amount: 50 },
+      { name: "Product B", quantity: 1, amount: 50 }
+    ],
+    custom_fields: "my-internal-id"
   });
 
   console.log("Payment URL:", data.payment_url);
@@ -52,8 +57,6 @@ try {
 } catch (error) {
   if (error instanceof PayWayError) {
     console.error("API Error:", error.message);
-    console.error("Status Code:", error.statusCode);
-    console.error("Response:", error.response);
   } else if (error instanceof PayWayRequestError) {
     console.error("Request Error:", error.message);
   }
@@ -95,7 +98,7 @@ try {
 ```typescript
 {
   tran_id?: string;
-  status?: "APPROVED" | "DECLINED" | "PENDING" | "PRE-AUTH" | "CANCELLED" | "REFUNDED";
+  status?: "APPROVED" | "DECLINED" | "PENDING" | "CANCELLED";
   amount?: string | number;
   currency?: string;
   [key: string]: any;
@@ -243,16 +246,47 @@ if (status.status === TransactionStatus.APPROVED) {
 
 ## Supported Features
 
-- [x] Create Transaction
+- [x] Create Transaction (with Hashing order fix)
 - [x] Check Transaction
 - [x] List Transactions
-- [ ] Refund Transaction
-- [ ] Pre-Authorization
+- [x] Support for Order Items
+- [x] Support for Custom Fields
+- [ ] Refund Transaction (Planned)
+- [ ] Pre-Authorization (Planned)
 - [ ] Account-On-File (AOF)
 - [ ] Card-On-File (COF)
 - [ ] Create Payment Link
 
 ## Upgrade Notes
+
+### v0.3.0 → v0.4.0
+
+#### Breaking Changes
+
+- **Internal API**: The `create_payload` method now requires `hash_values` as the first argument. If you were using this internal method directly, you will need to update your code.
+- **Scope Refinement**: Removed temporary/unsupported `refund` and `pre-auth` helpers to focus on making the core ecommerce checkout flow robust and correctly hashed.
+
+#### New Features
+
+- **Robust Hashing**: Fixed the hash generation order for all methods to strictly follow ABA PayWay's requirements.
+- **Support for `items`**: You can now pass an array of items to `create_transaction`. The library handles base64 encoding automatically.
+- **Support for `custom_fields`**: Easily pass supplementary data to transactions.
+- **Improved Validation**: Enhanced parameter validation for all API calls.
+
+#### Migration Guide
+
+**Create Transaction Updates:**
+
+```javascript
+// New support for items and custom_fields
+const response = await client.create_transaction({
+  tran_id: "order-123",
+  amount: 100,
+  currency: "USD",
+  items: [{ name: "Item 1", quantity: 1, amount: 100 }], // Now supported!
+  custom_fields: "my-custom-data" // Now supported!
+});
+```
 
 ### v0.2.0 → v0.3.0
 

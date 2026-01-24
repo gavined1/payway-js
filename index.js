@@ -87,11 +87,12 @@ class PayWayClient {
 
   /**
    * Creates a FormData payload with required authentication fields.
+   * @param {string[]} hash_values - Array of values to be used for hash generation in correct order
    * @param {object} [body={}] - Request body parameters
    * @param {Date} [date=new Date()] - Date to use for req_time
    * @returns {FormData} FormData object with all required fields including hash
    */
-  create_payload(body = {}, date = new Date()) {
+  create_payload(hash_values, body = {}, date = new Date()) {
     body = Object.fromEntries(
       Object.entries(body).filter(([k, v]) => v != null)
     );
@@ -99,18 +100,13 @@ class PayWayClient {
     const req_time = format(date, "yyyyMMddHHmmss");
     const merchant_id = this.merchant_id;
     const formData = new FormData();
-    const entries = Object.entries(body);
 
-    const hash = this.create_hash([
-      req_time,
-      merchant_id,
-      ...Object.values(body),
-    ]);
+    const hash = this.create_hash([req_time, merchant_id, ...hash_values]);
 
     formData.append("req_time", req_time);
     formData.append("merchant_id", merchant_id);
 
-    for (const [key, value] of entries) {
+    for (const [key, value] of Object.entries(body)) {
       formData.append(key, value);
     }
 
@@ -122,7 +118,7 @@ class PayWayClient {
    * Creates a new payment transaction.
    * @param {object} [options={}] - Transaction options
    * @param {string} options.tran_id - Transaction ID (unique identifier, required)
-   * @param {string} options.payment_option - Payment method (e.g., "abapay", "cards", "abapay_deeplink", required)
+   * @param {string} options.payment_option - Payment method (e.g., "abapay", "cards", required)
    * @param {number|string} options.amount - Transaction amount (required)
    * @param {string} options.currency - Currency code ("USD" or "KHR", required)
    * @param {string} [options.return_url] - URL to redirect after payment (base64 encoded automatically)
@@ -133,20 +129,10 @@ class PayWayClient {
    * @param {string} [options.lastname] - Customer last name
    * @param {string} [options.email] - Customer email
    * @param {string} [options.phone] - Customer phone number
+   * @param {string|object} [options.items] - Order items (will be base64 encoded JSON)
+   * @param {string} [options.type="purchase"] - Transaction type
+   * @param {string} [options.custom_fields] - Custom fields
    * @returns {Promise<object>} API response data with payment URL or deeplink
-   * @throws {PayWayError} If the API returns an error response (e.g., invalid parameters, duplicate transaction ID)
-   * @throws {PayWayRequestError} If a network or request error occurs
-   * @throws {Error} If required parameters are missing
-   * @example
-   * ```javascript
-   * const response = await client.create_transaction({
-   *   tran_id: "order-123",
-   *   payment_option: "abapay_deeplink",
-   *   amount: 100,
-   *   currency: "USD",
-   *   return_url: "https://example.com/callback"
-   * });
-   * ```
    */
   async create_transaction({
     tran_id,
@@ -161,6 +147,9 @@ class PayWayClient {
     lastname,
     email,
     phone,
+    items,
+    type = "purchase",
+    custom_fields,
   } = {}) {
     // Parameter validation
     if (!tran_id || typeof tran_id !== "string") {
@@ -187,54 +176,65 @@ class PayWayClient {
         return Buffer.from(d).toString("base64");
       }
 
-      if (typeof return_url === "string") return_url = base64(return_url);
+      let encoded_return_url = return_url;
+      if (typeof return_url === "string")
+        encoded_return_url = base64(return_url);
+
+      let encoded_return_deeplink = return_deeplink;
       if (typeof return_deeplink === "string")
-        return_deeplink = base64(return_deeplink);
+        encoded_return_deeplink = base64(return_deeplink);
       if (typeof return_deeplink === "object" && return_deeplink != null)
-        return_deeplink = base64(JSON.stringify(return_deeplink));
+        encoded_return_deeplink = base64(JSON.stringify(return_deeplink));
+
+      let encoded_items = items;
+      if (typeof items === "object" && items != null)
+        encoded_items = base64(JSON.stringify(items));
+      else if (typeof items === "string") encoded_items = base64(items);
+
+      const payloadData = {
+        tran_id,
+        amount,
+        pwt,
+        firstname: trim(firstname),
+        lastname: trim(lastname),
+        email: trim(email),
+        phone: trim(phone),
+        items: encoded_items,
+        type,
+        payment_option,
+        return_url: encoded_return_url,
+        continue_success_url,
+        return_deeplink: encoded_return_deeplink,
+        currency,
+        custom_fields,
+      };
+
+      const hashValues = [
+        payloadData.tran_id,
+        payloadData.amount,
+        payloadData.items ?? "",
+        payloadData.firstname ?? "",
+        payloadData.lastname ?? "",
+        payloadData.email ?? "",
+        payloadData.phone ?? "",
+        payloadData.type ?? "",
+        payloadData.payment_option ?? "",
+        payloadData.continue_success_url ?? "",
+        payloadData.return_url ?? "",
+        payloadData.return_deeplink ?? "",
+        payloadData.currency ?? "",
+        payloadData.custom_fields ?? "",
+        payloadData.pwt ?? "",
+      ].map((v) => (v == null ? "" : String(v)));
 
       const response = await this._client.post(
         "/api/payment-gateway/v1/payments/purchase",
-        // order matters here
-        this.create_payload({
-          tran_id,
-          amount,
-          pwt,
-          firstname: trim(firstname),
-          lastname: trim(lastname),
-          email: trim(email),
-          phone: trim(phone),
-          payment_option,
-          return_url,
-          continue_success_url,
-          return_deeplink,
-          currency,
-        })
+        this.create_payload(hashValues, payloadData)
       );
 
       return response.data;
     } catch (error) {
-      if (error.response) {
-        // API responded with error status
-        const statusCode = error.response.status;
-        const errorData = error.response.data;
-        throw new PayWayError(
-          `PayWay API error: ${
-            errorData?.message || error.message || "Unknown error"
-          }`,
-          errorData,
-          statusCode
-        );
-      } else if (error.request) {
-        // Request made but no response received
-        throw new PayWayRequestError(
-          `Network error: No response received from PayWay API`,
-          error
-        );
-      } else {
-        // Error setting up the request
-        throw new PayWayRequestError(`Request error: ${error.message}`, error);
-      }
+      this._handle_error(error);
     }
   }
 
@@ -242,18 +242,8 @@ class PayWayClient {
    * Checks the status of a transaction by transaction ID.
    * @param {string} tran_id - Transaction ID to check (required)
    * @returns {Promise<object>} API response data with transaction status and details
-   * @throws {PayWayError} If the API returns an error response (e.g., transaction not found)
-   * @throws {PayWayRequestError} If a network or request error occurs
-   * @throws {Error} If tran_id is missing or invalid
-   * @example
-   * ```javascript
-   * const response = await client.check_transaction("order-123");
-   * console.log("Status:", response.status);
-   * console.log("Amount:", response.amount);
-   * ```
    */
   async check_transaction(tran_id) {
-    // Parameter validation
     if (!tran_id || typeof tran_id !== "string") {
       throw new Error(
         "check_transaction: tran_id is required and must be a string"
@@ -263,55 +253,18 @@ class PayWayClient {
     try {
       const response = await this._client.post(
         "/api/payment-gateway/v1/payments/check-transaction",
-        // order matters here
-        this.create_payload({ tran_id })
+        this.create_payload([String(tran_id)], { tran_id })
       );
       return response.data;
     } catch (error) {
-      if (error.response) {
-        // API responded with error status
-        const statusCode = error.response.status;
-        const errorData = error.response.data;
-        throw new PayWayError(
-          `PayWay API error: ${
-            errorData?.message || error.message || "Unknown error"
-          }`,
-          errorData,
-          statusCode
-        );
-      } else if (error.request) {
-        // Request made but no response received
-        throw new PayWayRequestError(
-          `Network error: No response received from PayWay API`,
-          error
-        );
-      } else {
-        // Error setting up the request
-        throw new PayWayRequestError(`Request error: ${error.message}`, error);
-      }
+      this._handle_error(error);
     }
   }
 
   /**
    * Retrieves a list of transactions based on filter criteria.
    * @param {object} [options={}] - Filter options (all optional)
-   * @param {string} [options.from_date] - Start date for filtering (format: YYYYMMDD)
-   * @param {string} [options.to_date] - End date for filtering (format: YYYYMMDD)
-   * @param {string|number} [options.from_amount] - Minimum amount filter
-   * @param {string|number} [options.to_amount] - Maximum amount filter
-   * @param {string} [options.status] - Transaction status filter (e.g., "APPROVED", "PENDING", "DECLINED")
    * @returns {Promise<object>} API response data with transaction list and pagination info
-   * @throws {PayWayError} If the API returns an error response (e.g., invalid date format)
-   * @throws {PayWayRequestError} If a network or request error occurs
-   * @example
-   * ```javascript
-   * const response = await client.transaction_list({
-   *   from_date: "20240101",
-   *   to_date: "20240131",
-   *   status: "APPROVED"
-   * });
-   * console.log("Total:", response.total);
-   * ```
    */
   async transaction_list({
     from_date,
@@ -320,7 +273,6 @@ class PayWayClient {
     to_amount,
     status,
   } = {}) {
-    // Optional parameter validation
     if (from_date && typeof from_date !== "string") {
       throw new Error(
         "transaction_list: from_date must be a string in YYYYMMDD format"
@@ -333,39 +285,54 @@ class PayWayClient {
     }
 
     try {
+      const payloadData = {
+        from_date,
+        to_date,
+        from_amount,
+        to_amount,
+        status,
+      };
+
+      const hashValues = [
+        payloadData.from_date ?? "",
+        payloadData.to_date ?? "",
+        payloadData.from_amount ?? "",
+        payloadData.to_amount ?? "",
+        payloadData.status ?? "",
+      ].map((v) => (v == null ? "" : String(v)));
+
       const response = await this._client.post(
         "/api/payment-gateway/v1/payments/transaction-list",
-        this.create_payload({
-          from_date,
-          to_date,
-          from_amount,
-          to_amount,
-          status,
-        })
+        this.create_payload(hashValues, payloadData)
       );
       return response.data;
     } catch (error) {
-      if (error.response) {
-        // API responded with error status
-        const statusCode = error.response.status;
-        const errorData = error.response.data;
-        throw new PayWayError(
-          `PayWay API error: ${
-            errorData?.message || error.message || "Unknown error"
-          }`,
-          errorData,
-          statusCode
-        );
-      } else if (error.request) {
-        // Request made but no response received
-        throw new PayWayRequestError(
-          `Network error: No response received from PayWay API`,
-          error
-        );
-      } else {
-        // Error setting up the request
-        throw new PayWayRequestError(`Request error: ${error.message}`, error);
-      }
+      this._handle_error(error);
+    }
+  }
+
+  /**
+   * Internal error handler to reduce duplication
+   * @private
+   */
+  _handle_error(error) {
+    if (error.response) {
+      const statusCode = error.response.status;
+      const errorData = error.response.data;
+      throw new PayWayError(
+        `PayWay API error: ${
+          errorData?.message || error.message || "Unknown error"
+        }`,
+        errorData,
+        statusCode
+      );
+    } else if (error.request) {
+      throw new PayWayRequestError(
+        `Network error: No response received from PayWay API`,
+        error
+      );
+    } else {
+      throw new PayWayRequestError(`Request error: ${error.message}`, error);
     }
   }
 }

@@ -100,6 +100,12 @@ export interface CreateTransactionParams {
   email?: string;
   /** Customer phone number */
   phone?: string;
+  /** Order items (base64 encoded JSON automatically) */
+  items?: string | any[];
+  /** Transaction type (defaults to "purchase") */
+  type?: string;
+  /** Custom fields */
+  custom_fields?: string;
 }
 
 /**
@@ -200,18 +206,6 @@ export interface PayWayErrorResponse {
 
 /**
  * Custom error class for PayWay API errors
- * @example
- * ```typescript
- * try {
- *   await client.create_transaction({ ... });
- * } catch (error) {
- *   if (error instanceof PayWayError) {
- *     console.error('Error Code:', error.errorCode);
- *     console.error('Status Code:', error.statusCode);
- *     console.error('Details:', error.details);
- *   }
- * }
- * ```
  */
 export declare class PayWayError extends Error {
   /** Error code from PayWay API */
@@ -231,17 +225,6 @@ export declare class PayWayError extends Error {
 
 /**
  * Custom error class for PayWay network/request errors
- * @example
- * ```typescript
- * try {
- *   await client.check_transaction('tran-123');
- * } catch (error) {
- *   if (error instanceof PayWayRequestError) {
- *     console.error('Network error:', error.message);
- *     console.error('Original error:', error.originalError);
- *   }
- * }
- * ```
  */
 export declare class PayWayRequestError extends PayWayError {
   /** Original error object from axios */
@@ -262,7 +245,7 @@ export declare class PayWayClient {
 
   /**
    * Creates a new PayWayClient instance
-   * @param base_url - Base URL for PayWay API (e.g., "https://checkout-sandbox.payway.com.kh/")
+   * @param base_url - Base URL for PayWay API
    * @param merchant_id - Your merchant ID
    * @param api_key - Your API key
    * @param client_factory - Optional factory function to create custom HTTP client
@@ -276,39 +259,20 @@ export declare class PayWayClient {
 
   /**
    * Creates a SHA512 HMAC hash from an array of string values
-   * @param values - Array of string values to hash
-   * @returns Base64-encoded hash
    */
   public create_hash(values: string[]): string;
 
   /**
    * Creates a FormData payload with required authentication fields
-   * @param body - Request body parameters
-   * @param date - Date to use for req_time (defaults to current date)
-   * @returns FormData object with all required fields including hash
    */
-  public create_payload(body?: any, date?: Date): FormData;
+  public create_payload(
+    hash_values: string[],
+    body?: any,
+    date?: Date
+  ): FormData;
 
   /**
    * Creates a new payment transaction
-   * @param args - Transaction parameters
-   * @returns Promise resolving to CreateTransactionResponse with payment URL or deeplink
-   * @throws {PayWayError} If the API returns an error response (e.g., invalid parameters, duplicate transaction ID)
-   * @throws {PayWayRequestError} If a network or request error occurs
-   * @example
-   * ```typescript
-   * const response = await client.create_transaction({
-   *   tran_id: "order-123",
-   *   payment_option: PaymentOption.ABAPAY_DEEPLINK,
-   *   amount: 100,
-   *   currency: "USD",
-   *   return_url: "https://example.com/callback",
-   *   firstname: "John",
-   *   lastname: "Doe",
-   *   email: "john@example.com"
-   * });
-   * console.log('Payment URL:', response.payment_url);
-   * ```
    */
   public create_transaction(
     args?: Partial<CreateTransactionParams>
@@ -316,37 +280,11 @@ export declare class PayWayClient {
 
   /**
    * Checks the status of a transaction by transaction ID
-   * @param tran_id - Transaction ID to check (required)
-   * @returns Promise resolving to CheckTransactionResponse with transaction details
-   * @throws {PayWayError} If the API returns an error response (e.g., transaction not found)
-   * @throws {PayWayRequestError} If a network or request error occurs
-   * @example
-   * ```typescript
-   * const response = await client.check_transaction("order-123");
-   * if (response.status === TransactionStatus.APPROVED) {
-   *   console.log('Transaction approved:', response.amount);
-   * }
-   * ```
    */
   public check_transaction(tran_id: string): Promise<CheckTransactionResponse>;
 
   /**
    * Retrieves a list of transactions based on filter criteria
-   * @param args - Filter parameters (all optional)
-   * @returns Promise resolving to TransactionListResponse with array of transactions
-   * @throws {PayWayError} If the API returns an error response (e.g., invalid date format)
-   * @throws {PayWayRequestError} If a network or request error occurs
-   * @example
-   * ```typescript
-   * const response = await client.transaction_list({
-   *   from_date: "20240101",
-   *   to_date: "20240131",
-   *   status: TransactionStatus.APPROVED,
-   *   from_amount: 100,
-   *   to_amount: 1000
-   * });
-   * console.log('Found', response.total, 'transactions');
-   * ```
    */
   public transaction_list(
     args?: TransactionListParams
